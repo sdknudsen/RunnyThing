@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title> Run Javascript!, Run! </title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.18.2/codemirror.css">
+    <script src="epicsound.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.18.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.18.2/mode/javascript/javascript.min.js"></script>
+
+    <!-- Stylesheets -->
+    <link href="https://unpkg.com/basscss@8.0.2/css/basscss.min.css" rel="stylesheet">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Bungee" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+
+  </head>
+  <body style="background:#E6E4E1; font-family: 'Open Sans', sans-serif;">
+
+    <div class="max-width-4 mx-auto">
+      <div class="clearfix">
+	<div class="col col-12">
+	  <h1 class="h1 align-middle" style="font-family: 'Bungee', cursive;">
+	    Runny Thing -- Versión Dos (A2)
+	  </h1>
+	</div>
+	<div class="col col-12">
+	  <button onclick="go();"> Go </button>
+	  <button onclick="cleanup();"> Clear </button>
+	  <button onclick="cleanupUser();"> Clear User Code </button>
+	  <!-- <button onclick="readStart();"> Start </button> -->
+	  <button onclick="readNext();"> Next </button>
+	  <input type="checkbox" id="show_src"><label for="show_src">Show source</label>
+	  <input type="checkbox" id="fast_go" checked><label for="fast_go">Clear output before go</label>
+	</div>
+      </div>
+      <div class="clearfix">
+	<div class="col col-6 p1">
+    <textarea class="left" id="source" style="display: table">/* user code */
+</textarea>
+	</div>
+	<div class="col col-6 p1">
+	  <p>Output:
+	  <div id="output"></div>
+	</div>
+      </div>
+      <div class="clearfix">
+	<div class="col col-6 p1">
+	  <textarea class="left" id="pre" style="display: table">
+	    /* definitions */
+
+	    var tokens = {
+ TSTART : /^{{/,
+ TEND : /^}}/,
+ DSTART : /^{:/,
+ DEND : /^:}/,
+ PSTART : /^{{{/,
+ PEND : /^}}}/,
+ PIPE : /^\|/,
+ PNAME : /^([^}|]|}(?!})|}}(?!}))+/,
+ OUTERTEXT : /^([^{]|{(?!({|:)))+/,
+ INNERTEXT : /^([^{|}]|{(?!({|:))|}(?!}))+/,
+ INNERDTEXT : /^([^{|:]|{(?!({|:))|:(?!}))+/}
+
+
+var TSTART = /^{{/;
+var TEND = /^}}/;
+var DSTART = /^{:/;
+var DEND = /^:}/;
+var PSTART = /^{{{/;
+var PEND = /^}}}/;
+var PIPE = /^\|/;
+var PNAME = /^([^}|]|}(?!})|}}(?!}))+/;
+var OUTERTEXT = /^([^{]|{(?!({|:)))+/;
+var INNERTEXT = /^([^{|}]|{(?!({|:))|}(?!}))+/;
+var INNERDTEXT = /^([^{|:]|{(?!({|:))|:(?!}))+/;
+
+
+	  </textarea>
+	</div>
+	<div class="col col-6 p1">
+	  <textarea class="left" id="test" style="display: table">
+
+/* Tests */
+
+
+var simpOuter = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, OUTERTEXT : true }; 
+function equiv(t1, v1, t2, v2) {
+    return String(t1) === t2 && v1 === v2;
+}
+
+function test(){
+    var all = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, OUTERTEXT : true, INNERTEXT : true, INNERDTEXT : true, PNAME : true };
+    var simpInner = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, INNERTEXT : true };
+    var simpInnerD = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, INNERDTEXT : true };
+    var simpPName = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, PNAME : true };
+
+    var scan0 = scan("{{abc", all);
+    var test0 = equiv(scan0.token, scan0.value, "TSTART", "{{");
+    var scan1 = scan("}}abc", all);
+    var test1 = equiv(scan1.token, scan1.value, "TEND", "}}");
+    var scan2 = scan("|abc", all);
+    var test2 = equiv(scan2.token, scan2.value, "PIPE", "|");
+    var scan3 = scan("{:abc", all);
+    var test3 = equiv(scan3.token, scan3.value, "DSTART", "{:");
+    var scan4 = scan(":});abc", all);
+    var test4 = equiv(scan4.token, scan4.value, "DEND", ":}");
+    var scan5 = scan("{{{abc", all);
+    var test5 = equiv(scan5.token, scan5.value, "PSTART", "{{{");
+    var scan6 = scan("}}}abc", all);
+    var test6 = equiv(scan6.token, scan6.value, "PEND", "}}}");
+    var scan7 = scan("abc{{def", simpOuter);
+    var test7 = equiv(scan7.token, scan7.value, "OUTERTEXT", "abc");
+    var scan8 = scan("abc{:def", simpOuter);
+    var test8 = equiv(scan8.token, scan8.value, "OUTERTEXT", "abc");
+    var scan9 = scan("abc{{def", simpInner);
+    var test9 = equiv(scan9.token, scan9.value, "INNERTEXT", "abc");
+    var scan10 = scan("abc{:def", simpInner);
+    var test10 = equiv(scan10.token, scan10.value, "INNERTEXT", "abc");
+    var scan11 = scan("abc{{{def", simpInner);
+    var test11 = equiv(scan11.token, scan11.value, "INNERTEXT", "abc");
+    var scan12 = scan("abc|def", simpInner);
+    var test12 = equiv(scan12.token, scan12.value, "INNERTEXT", "abc");
+    var scan13 = scan("abc}}def", simpInner);
+    var test13 = equiv(scan13.token, scan13.value, "INNERTEXT", "abc");
+    var scan14 = scan("abc{{def", simpInnerD);
+    var test14 = equiv(scan14.token, scan14.value, "INNERDTEXT", "abc");
+    var scan15 = scan("abc{:def", simpInnerD);
+    var test15 = equiv(scan15.token, scan15.value, "INNERDTEXT", "abc");
+    var scan16 = scan("abc{{{def", simpInnerD);
+    var test16 = equiv(scan16.token, scan16.value, "INNERDTEXT", "abc");
+    var scan17 = scan("abc|def", simpInnerD);
+    var test17 = equiv(scan17.token, scan17.value, "INNERDTEXT", "abc");
+    var scan18 = scan("abc:}def", simpInnerD);
+    var test18 = equiv(scan18.token, scan18.value, "INNERDTEXT", "abc");
+    var scan19 = scan("abc|def", simpPName);
+    var test19 = equiv(scan19.token, scan19.value, "PNAME", "abc");
+    var scan20 = scan("abc}}}def", simpPName);
+    var test20 = equiv(scan20.token, scan20.value, "PNAME", "abc");
+
+<!-- function scanit(s) { -->
+<!-- var sout = ""; -->
+<!-- while(s) { -->
+<!-- var t = scan(s,all); -->
+<!-- sout += t.value; -->
+<!-- s = s.substr(t.value.length); -->
+<!-- } -->
+<!-- return sout; -->
+<!-- } -->
+
+<!--     var test21 = "{{}}|{::}{{{}}}" === scanit("{{}}|{::}{{{}}}"); -->
+
+    var curr_grade = 11 - (0 + !test0 + !test1 + !test2 + !test3 + !test4 + !test5 + !test6 + !test7 + !test8 + !test9 + !test10 + !test11 + !test12 + !test13 + !test14 + !test15 + !test16 + !test17 + !test18 + !test19 + !test20);
+if(curr_grade < 3)
+		curr_grade = (0 + test0 + test1 + test2 + test3 + test4 + test5 + test6 + test7 + test8 + test9 + test10 + test11 + test12 + test13 + test14 + test15 + test16 + test17 + test18 + test19 + test20) / 4;
+
+scan("{{abc", all).token
+var passes = curr_grade + " / 11 ";
+
+if(!test0)
+passes += "\n0: " + scan0.token + ", " + scan0.value +  ", gold: TSTART, {{";
+if(!test1)
+passes += "\n1: " + scan1.token + ", " + scan1.value +  ", gold: TEND, }}";
+if(!test2)
+passes += "\n2: " + scan2.token + ", " + scan2.value +  ", gold: PIPE, |";
+if(!test3)
+passes += "\n3: " + scan3.token + ", " + scan3.value +  ", gold: DSTART, {:";
+if(!test4)
+passes += "\n4: " + scan4.token + ", " + scan4.value +  ", gold: DEND, :}";
+if(!test5)
+passes += "\n5: " + scan5.token + ", " + scan5.value +  ", gold: PSTART, {{{";
+if(!test6)
+passes += "\n6: " + scan6.token + ", " + scan6.value +  ", gold: PEND, }}}";
+if(!test7)
+passes += "\n7: " + scan7.token + ", " + scan7.value +  ", gold: OUTERTEXT, abc";
+if(!test8)
+passes += "\n8: " + scan8.token + ", " + scan8.value +  ", gold: OUTERTEXT, abc";
+if(!test9)
+passes += "\n9: " + scan9.token + ", " + scan9.value +  ", gold: INNERTEXT, abc";
+if(!test10)
+passes += "\n10: " + scan10.token + ", " + scan10.value + ", gold: INNERTEXT, abc";
+if(!test11)
+passes += "\n11: " + scan11.token + ", " + scan11.value + ", gold: INNERTEXT, abc";
+if(!test12)
+passes += "\n12: " + scan12.token + ", " + scan12.value + ", gold: INNERTEXT, abc";
+if(!test13)
+passes += "\n13: " + scan13.token + ", " + scan13.value + ", gold: INNERTEXT, abc";
+if(!test14)
+passes += "\n14: " + scan14.token + ", " + scan14.value + ", gold: INNERDTEXT, abc";
+if(!test15)
+passes += "\n15: " + scan15.token + ", " + scan15.value + ", gold: INNERDTEXT, abc";
+if(!test16)
+passes += "\n16: " + scan16.token + ", " + scan16.value + ", gold: INNERDTEXT, abc";
+if(!test17)
+passes += "\n17: " + scan17.token + ", " + scan17.value + ", gold: INNERDTEXT, abc";
+if(!test18)
+passes += "\n18: " + scan18.token + ", " + scan18.value + ", gold: INNERDTEXT, abc";
+if(!test19)
+passes += "\n19: " + scan19.token + ", " + scan19.value + ", gold: PNAME, abc";
+if(!test20)
+passes += "\n20: " + scan20.token + ", " + scan20.value + ", gold: PNAME, abc";
+
+
+    return passes;
+}
+test();
+
+	  </textarea>
+    <!-- var cXXXr = realCXR; -->
+    <!-- addTag("getCout = " + getCount, rt_output); -->
+	</div>
+      </div>
+	<div class="col col-12">
+	  <p> The execution is the result of concatenating the code in
+	  the definition pane (i.e.:lower left pane), with the user
+	    code in the top left pane, and finally the code in the test pane.
+	    The idea is to speed up the grading.
+	</div>
+	<div class="col col-12">
+	  <h3>Options</h3>
+	  <input type="checkbox" id="mute_sound"><label for="mute_sound">Mute Sound</label>
+	</div>
+    </div>
+
+    <script src="logic.js"></script>
+</body>
+</html>
+
+<!-- function assert(condition, message) { -->
+<!--     if (!condition) { -->
+<!--         message = message || "Assertion failed"; -->
+<!--         if (typeof Error !== "undefined") { -->
+<!--             throw new Error(message); -->
+<!--         } -->
+<!--         throw message; // Fallback -->
+<!--     } -->
+<!-- } -->
+<!-- ; -->
+
+
+<!-- function test () { -->
+<!--     var getCount = 0; -->
+<!--     try { -->
+<!--         var dict = addAA(addAA(constructAA(), "k", 3), "yass", 4001); -->
+<!--         addTag("Construction +1", rt_output); -->
+<!--     } catch (e) { addTag("Failed with: " + e.message, rt_output);  } -->
+<!-- } -->
+
+<!-- test() -->
+
+
+<!-- if(TSTART === 'undefined' || -->
+<!-- TEND === 'undefined' || -->
+<!-- PIPE === 'undefined' || -->
+<!-- OUTERTEXT === 'undefined' || -->
+<!-- INNERTEXT === 'undefined' || -->
+<!-- DSTART === 'undefined' || -->
+<!-- DEND === 'undefined' || -->
+<!-- INNERDTEXT === 'undefined' || -->
+<!-- PSTART === 'undefined' || -->
+<!-- PEND === 'undefined' || -->
+<!-- PNAME === 'undefined') { -->
+<!--     addTag("Undefined", rt_output); -->
+<!-- } -->
+
+<!-- tokenset -->
+<!-- var TSTART = /^{{/; -->
+<!-- var TEND = /^}}/; -->
+<!-- var DSTART = /^{:/; -->
+<!-- var DEND = /^:}/; -->
+<!-- var PSTART = /^{{{/; -->
+<!-- var PEND = /^}}}/; -->
+<!-- var PIPE = /^\|/; -->
+<!-- var PNAME = /^([^}|]|}(?!})|}}(?!}))+/; -->
+<!-- var OUTERTEXT = /^([^{]|{(?!({|:)))+/; -->
+<!-- var INNERTEXT = /^([^{|}]|{(?!({|:))|}(?!}))+/; -->
+<!-- var INNERDTEXT = /^([^{|:]|{(?!({|:))|:(?!}))+/; -->
+
+<!-- function scan(s,tokenset) { -->
+<!--     // Inside here we just need to check for each regexp we defined in q1. -->
+<!--     // Tokens are disjoint in all valid cases, except for TSTART and PSTART, -->
+<!--     // which we resolve by always checking for PSTART first. -->
+
+<!--     // just for debugging -->
+<!--     // var ss = "{ "; -->
+<!--     // for (var t in tokenset) { -->
+<!--     //     ss += t + ": "+tokenset[t]+", "; -->
+<!--     // } -->
+<!--     // addDebugText("Token set: "+ss+"}\n"); -->
+
+<!--     // To go over all tokens we create an array of objects mapping names to the  -->
+<!--     // corresponding regexp variables we created in q1.  We use an array -->
+<!--     // so we can check them in a specific order. -->
+<!--     var tokens = [ -->
+<!--         { name:"PSTART", regexp:PSTART }, -->
+<!--         { name:"PEND", regexp:PEND }, -->
+<!--         { name:"TSTART", regexp:TSTART },  -->
+<!--         { name:"TEND", regexp:TEND } , -->
+<!--         { name:"DSTART", regexp:DSTART }, -->
+<!--         { name:"DEND", regexp:DEND }, -->
+<!--         { name:"PIPE", regexp:PIPE }, -->
+<!--         { name:"PNAME", regexp:PNAME }, -->
+<!--         { name:"OUTERTEXT", regexp:OUTERTEXT }, -->
+<!--         { name:"INNERTEXT", regexp:INNERTEXT }, -->
+<!--         { name:"INNERDTEXT", regexp:INNERDTEXT } ]; -->
+
+<!--     // Now, iterative through our tokens array, and see what we find -->
+<!--     for (var i=0; i<tokens.length; i++) { -->
+<!--         var m; -->
+<!--         if (tokenset[tokens[i].name] && (m = s.match(tokens[i].regexp))) { -->
+<!--             return { token:tokens[i].name, value:m[0] }; -->
+<!--         } -->
+<!--     } -->
+<!--     throw "Hey, there aren't supposed to be syntactic errors, but I encountered \""+s+"\""; -->
+<!-- } -->
+
+<!-- function scanit(s) { -->
+<!--     var sout = ""; -->
+<!--     while(s) { -->
+<!-- 	var t = scan(s,simpOuter); -->
+<!-- 	sout += t.value; -->
+<!-- 	s = s.substr(t.value.length); -->
+<!--     } -->
+<!--     return sout; -->
+<!-- } -->
+

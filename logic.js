@@ -1,3 +1,4 @@
+var studentCount = 0;
 var rt_count = 0;
 var editor = CodeMirror.fromTextArea(document.getElementById("source"), {
     lineNumbers: true,
