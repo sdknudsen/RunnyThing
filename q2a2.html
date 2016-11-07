@@ -86,8 +86,12 @@ var INNERDTEXT = /^([^{|:]|{(?!({|:))|:(?!}))+/;
 
 
 var simpOuter = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, OUTERTEXT : true }; 
-function equiv(t1, v1, t2, v2) {
-    return String(t1) === t2 && v1 === v2;
+function equiv1(t1, t2) {
+    return String(t1) === t2;
+}
+
+function equiv2(v1, v2) {
+    return v1 === v2;
 }
 
 function test(){
@@ -97,47 +101,68 @@ function test(){
     var simpPName = {TSTART : true, TEND : true, PIPE : true, DSTART : true, DEND : true, PSTART : true, PEND : true, PNAME : true };
 
     var scan0 = scan("{{abc", all);
-    var test0 = equiv(scan0.token, scan0.value, "TSTART", "{{");
+    var test0 = equiv1(scan0.token, "TSTART");
+    var test0_2 = equiv2(scan0.value, "{{");
     var scan1 = scan("}}abc", all);
-    var test1 = equiv(scan1.token, scan1.value, "TEND", "}}");
+    var test1 = equiv1(scan1.token, "TEND");
+    var test1_2 = equiv2(scan1.value, "}}");
     var scan2 = scan("|abc", all);
-    var test2 = equiv(scan2.token, scan2.value, "PIPE", "|");
+    var test2 = equiv1(scan2.token, "PIPE");
+    var test2_2 = equiv2(scan2.value, "|");
     var scan3 = scan("{:abc", all);
-    var test3 = equiv(scan3.token, scan3.value, "DSTART", "{:");
+    var test3 = equiv1(scan3.token, "DSTART");
+    var test3_2 = equiv2(scan3.value, "{:");
     var scan4 = scan(":});abc", all);
-    var test4 = equiv(scan4.token, scan4.value, "DEND", ":}");
+    var test4 = equiv1(scan4.token, "DEND");
+    var test4_2 = equiv2(scan4.value, ":}");
     var scan5 = scan("{{{abc", all);
-    var test5 = equiv(scan5.token, scan5.value, "PSTART", "{{{");
+    var test5 = equiv1(scan5.token, "PSTART");
+    var test5_2 = equiv2(scan5.value, "{{{");
     var scan6 = scan("}}}abc", all);
-    var test6 = equiv(scan6.token, scan6.value, "PEND", "}}}");
+    var test6 = equiv1(scan6.token, "PEND");
+    var test6_2 = equiv2(scan6.value, "}}}");
     var scan7 = scan("abc{{def", simpOuter);
-    var test7 = equiv(scan7.token, scan7.value, "OUTERTEXT", "abc");
+    var test7 = equiv1(scan7.token, "OUTERTEXT");
+    var test7_2 = equiv2(scan7.value, "abc");
     var scan8 = scan("abc{:def", simpOuter);
-    var test8 = equiv(scan8.token, scan8.value, "OUTERTEXT", "abc");
+    var test8 = equiv1(scan8.token, "OUTERTEXT");
+    var test8_2 = equiv2(scan8.value, "abc");
     var scan9 = scan("abc{{def", simpInner);
-    var test9 = equiv(scan9.token, scan9.value, "INNERTEXT", "abc");
+    var test9 = equiv1(scan9.token, "INNERTEXT");
+    var test9_2 = equiv2(scan9.value, "abc");
     var scan10 = scan("abc{:def", simpInner);
-    var test10 = equiv(scan10.token, scan10.value, "INNERTEXT", "abc");
+    var test10 = equiv1(scan10.token, "INNERTEXT");
+    var test10_2 = equiv2(scan10.value, "abc");
     var scan11 = scan("abc{{{def", simpInner);
-    var test11 = equiv(scan11.token, scan11.value, "INNERTEXT", "abc");
+    var test11 = equiv1(scan11.token, "INNERTEXT");
+    var test11_2 = equiv2(scan11.value, "abc");
     var scan12 = scan("abc|def", simpInner);
-    var test12 = equiv(scan12.token, scan12.value, "INNERTEXT", "abc");
+    var test12 = equiv1(scan12.token, "INNERTEXT");
+    var test12_2 = equiv2(scan12.value, "abc");
     var scan13 = scan("abc}}def", simpInner);
-    var test13 = equiv(scan13.token, scan13.value, "INNERTEXT", "abc");
+    var test13 = equiv1(scan13.token, "INNERTEXT");
+    var test13_2 = equiv2(scan13.value, "abc");
     var scan14 = scan("abc{{def", simpInnerD);
-    var test14 = equiv(scan14.token, scan14.value, "INNERDTEXT", "abc");
+    var test14 = equiv1(scan14.token, "INNERDTEXT");
+    var test14_2 = equiv2(scan14.value, "abc");
     var scan15 = scan("abc{:def", simpInnerD);
-    var test15 = equiv(scan15.token, scan15.value, "INNERDTEXT", "abc");
+    var test15 = equiv1(scan15.token, "INNERDTEXT");
+    var test15_2 = equiv2(scan15.value, "abc");
     var scan16 = scan("abc{{{def", simpInnerD);
-    var test16 = equiv(scan16.token, scan16.value, "INNERDTEXT", "abc");
+    var test16 = equiv1(scan16.token, "INNERDTEXT");
+    var test16_2 = equiv2(scan16.value, "abc");
     var scan17 = scan("abc|def", simpInnerD);
-    var test17 = equiv(scan17.token, scan17.value, "INNERDTEXT", "abc");
+    var test17 = equiv1(scan17.token, "INNERDTEXT");
+    var test17_2 = equiv2(scan17.value, "abc");
     var scan18 = scan("abc:}def", simpInnerD);
-    var test18 = equiv(scan18.token, scan18.value, "INNERDTEXT", "abc");
+    var test18 = equiv1(scan18.token, "INNERDTEXT");
+    var test18_2 = equiv2(scan18.value, "abc");
     var scan19 = scan("abc|def", simpPName);
-    var test19 = equiv(scan19.token, scan19.value, "PNAME", "abc");
+    var test19 = equiv1(scan19.token, "PNAME");
+    var test19_2 = equiv2(scan19.value, "abc");
     var scan20 = scan("abc}}}def", simpPName);
-    var test20 = equiv(scan20.token, scan20.value, "PNAME", "abc");
+    var test20 = equiv1(scan20.token, "PNAME");
+    var test20_2 = equiv2(scan20.value, "abc");
 
 <!-- function scanit(s) { -->
 <!-- var sout = ""; -->
@@ -151,56 +176,55 @@ function test(){
 
 <!--     var test21 = "{{}}|{::}{{{}}}" === scanit("{{}}|{::}{{{}}}"); -->
 
-    var curr_grade = 11 - (0 + !test0 + !test1 + !test2 + !test3 + !test4 + !test5 + !test6 + !test7 + !test8 + !test9 + !test10 + !test11 + !test12 + !test13 + !test14 + !test15 + !test16 + !test17 + !test18 + !test19 + !test20);
-if(curr_grade < 3)
-		curr_grade = (0 + test0 + test1 + test2 + test3 + test4 + test5 + test6 + test7 + test8 + test9 + test10 + test11 + test12 + test13 + test14 + test15 + test16 + test17 + test18 + test19 + test20) / 4;
+    var curr_grade = 11 - (0 + !test0 + !test1 + !test2 + !test3 + !test4 + !test5 + !test6 + !test7 + !test8 + !test9 + !test10 + !test11 + !test12 + !test13 + !test14 + !test15 + !test16 + !test17 + !test18 + !test19 + !test20 + !test0_2 + !test1_2 + !test2_2 + !test3_2 + !test4_2 + !test5_2 + !test6_2 + !test7_2 + !test8_2 + !test9_2 + !test10_2 + !test11_2 + !test12_2 + !test13_2 + !test14_2 + !test15_2 + !test16_2 + !test17_2 + !test18_2 + !test19_2 + !test20_2) / 4;
+<!-- if(curr_grade < 3) -->
+<!-- 		curr_grade = (0 + test0 + test1 + test2 + test3 + test4 + test5 + test6 + test7 + test8 + test9 + test10 + test11 + test12 + test13 + test14 + test15 + test16 + test17 + test18 + test19 + test20) / 4; -->
 
 scan("{{abc", all).token
 var passes = curr_grade + " / 11 ";
 
-if(!test0)
+if(!test0 || !test0_2)
 passes += "\n0: " + scan0.token + ", " + scan0.value +  ", gold: TSTART, {{";
-if(!test1)
+if(!test1 || !test1_2)
 passes += "\n1: " + scan1.token + ", " + scan1.value +  ", gold: TEND, }}";
-if(!test2)
+if(!test2 || !test2_2)
 passes += "\n2: " + scan2.token + ", " + scan2.value +  ", gold: PIPE, |";
-if(!test3)
+if(!test3 || !test3_2)
 passes += "\n3: " + scan3.token + ", " + scan3.value +  ", gold: DSTART, {:";
-if(!test4)
+if(!test4 || !test4_2)
 passes += "\n4: " + scan4.token + ", " + scan4.value +  ", gold: DEND, :}";
-if(!test5)
+if(!test5 || !test5_2)
 passes += "\n5: " + scan5.token + ", " + scan5.value +  ", gold: PSTART, {{{";
-if(!test6)
+if(!test6 || !test6_2)
 passes += "\n6: " + scan6.token + ", " + scan6.value +  ", gold: PEND, }}}";
-if(!test7)
+if(!test7 || !test7_2)
 passes += "\n7: " + scan7.token + ", " + scan7.value +  ", gold: OUTERTEXT, abc";
-if(!test8)
+if(!test8 || !test8_2)
 passes += "\n8: " + scan8.token + ", " + scan8.value +  ", gold: OUTERTEXT, abc";
-if(!test9)
+if(!test9 || !test9_2)
 passes += "\n9: " + scan9.token + ", " + scan9.value +  ", gold: INNERTEXT, abc";
-if(!test10)
+if(!test10 || !test10_2)
 passes += "\n10: " + scan10.token + ", " + scan10.value + ", gold: INNERTEXT, abc";
-if(!test11)
+if(!test11 || !test11_2)
 passes += "\n11: " + scan11.token + ", " + scan11.value + ", gold: INNERTEXT, abc";
-if(!test12)
+if(!test12 || !test12_2)
 passes += "\n12: " + scan12.token + ", " + scan12.value + ", gold: INNERTEXT, abc";
-if(!test13)
+if(!test13 || !test13_2)
 passes += "\n13: " + scan13.token + ", " + scan13.value + ", gold: INNERTEXT, abc";
-if(!test14)
+if(!test14 || !test14_2)
 passes += "\n14: " + scan14.token + ", " + scan14.value + ", gold: INNERDTEXT, abc";
-if(!test15)
+if(!test15 || !test15_2)
 passes += "\n15: " + scan15.token + ", " + scan15.value + ", gold: INNERDTEXT, abc";
-if(!test16)
+if(!test16 || !test16_2)
 passes += "\n16: " + scan16.token + ", " + scan16.value + ", gold: INNERDTEXT, abc";
-if(!test17)
+if(!test17 || !test17_2)
 passes += "\n17: " + scan17.token + ", " + scan17.value + ", gold: INNERDTEXT, abc";
-if(!test18)
+if(!test18 || !test18_2)
 passes += "\n18: " + scan18.token + ", " + scan18.value + ", gold: INNERDTEXT, abc";
-if(!test19)
+if(!test19 || !test19_2)
 passes += "\n19: " + scan19.token + ", " + scan19.value + ", gold: PNAME, abc";
-if(!test20)
+if(!test20 || !test20_2)
 passes += "\n20: " + scan20.token + ", " + scan20.value + ", gold: PNAME, abc";
-
 
     return passes;
 }
