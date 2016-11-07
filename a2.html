@@ -50,33 +50,54 @@
 	  <textarea class="left" id="pre" style="display: table">
 	    /* definitions */
 
-	    var tokens = {
- TSTART : /^{{/,
- TEND : /^}}/,
- DSTART : /^{:/,
- DEND : /^:}/,
- PSTART : /^{{{/,
- PEND : /^}}}/,
- PIPE : /^\|/,
- PNAME : /^([^}|]|}(?!})|}}(?!}))+/,
- OUTERTEXT : /^([^{]|{(?!({|:)))+/,
- INNERTEXT : /^([^{|}]|{(?!({|:))|}(?!}))+/,
- INNERDTEXT : /^([^{|:]|{(?!({|:))|:(?!}))+/}
-
-
+// These tokens are trivial, made of the literal characters we want to recognize, and ensuring it is at
+// the start of the string.
 var TSTART = /^{{/;
 var TEND = /^}}/;
 var DSTART = /^{:/;
 var DEND = /^:}/;
 var PSTART = /^{{{/;
 var PEND = /^}}}/;
+// Pipe is a bit trickier, since "|" is a special character in RegExp's, so we need to escape it.
 var PIPE = /^\|/;
-var PNAME = /^([^}|]|}(?!})|}}(?!}))+/;
-var OUTERTEXT = /^([^{]|{(?!({|:)))+/;
-var INNERTEXT = /^([^{|}]|{(?!({|:))|}(?!}))+/;
-var INNERDTEXT = /^([^{|:]|{(?!({|:))|:(?!}))+/;
 
+// These rest rely on the same idea.  We match at least 1 character, consisting of a choice between
+// something that could not be any of the disallowed tokens, or which is part of a disallowed
+// token, but not followed by the rest of it.  For this we make use of the "x(?!y)" operator.
+
+// For PNAME, we can recognize anything but "}", or "}" not followed by another "}", or "}}"
+// not followed by another "}".
+var PNAME = /^([^}|]|}(?!})|}}(?!}))+/;
+
+// OUTERTEXT recognizes anything but "{", or "{" not followed by either of "{" or ":"
+var OUTERTEXT = /^([^{]|{(?!({|:)))+/;
+
+// INNERTEXT recognizes anything but "{" or "|", or "}", or "{" not followed by "{" or ":",
+// or "}" not followed by another "}"
+var INNERTEXT = /^([^{|}]|{(?!({|:))|}(?!}))+/;
+
+// INNERDTEXT recognizes anything but "{" or "|", or ":", or "{" not followed by "{" or ":",
+// or ":" not followed by "}"
+var INNERDTEXT = /^([^{|:]|{(?!({|:))|:(?!}))+/;
+// Returns the token located at the beginning of s, where the set of allowed tokens
+// is given by an object tokenset, as per the assignment format.
+// Syntactically correct input is assumed, and the tokenset is assumed appropriate
+// for the input too, so we do not need to check for errors of any form.
 function scan(s,tokenset) {
+    // Inside here we just need to check for each regexp we defined in q1.
+    // Tokens are disjoint in all valid cases, except for TSTART and PSTART,
+    // which we resolve by always checking for PSTART first.
+
+    // just for debugging
+    // var ss = "{ ";
+    // for (var t in tokenset) {
+    //     ss += t + ": "+tokenset[t]+", ";
+    // }
+    // addDebugText("Token set: "+ss+"}\n");
+
+    // To go over all tokens we create an array of objects mapping names to the 
+    // corresponding regexp variables we created in q1.  We use an array
+    // so we can check them in a specific order.
     var tokens = [
         { name:"PSTART", regexp:PSTART },
         { name:"PEND", regexp:PEND },
@@ -90,6 +111,7 @@ function scan(s,tokenset) {
         { name:"INNERTEXT", regexp:INNERTEXT },
         { name:"INNERDTEXT", regexp:INNERDTEXT } ];
 
+    // Now, iterative through our tokens array, and see what we find
     for (var i=0; i<tokens.length; i++) {
         var m;
         if (tokenset[tokens[i].name] && (m = s.match(tokens[i].regexp))) {
@@ -98,8 +120,9 @@ function scan(s,tokenset) {
     }
     throw "Hey, there aren't supposed to be syntactic errors, but I encountered \""+s+"\"";
 }
+
 // Parsing the <outer> rule.
-function parseOuter(s) {
+function parseOuter_sol(s) {
     // As a base case, if we are fed the empty string just return null.
     if (s=="")
         return null;
@@ -126,20 +149,20 @@ function parseOuter(s) {
         s = s.substr(obj.length);
         break;
     case 'TSTART':
-        obj.templateinvocation = parseTemplateInvocation(s);
+        obj.templateinvocation = parseTemplateInvocation_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templateinvocation.length;
         s = s.substr(obj.templateinvocation.length);
         break;
     case 'DSTART':
-        obj.templatedef = parseTemplateDef(s);
+        obj.templatedef = parseTemplateDef_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templatedef.length;
         s = s.substr(obj.templatedef.length);
         break;
     }
     // We might have more outer pieces, so keep going.
-    obj.next = parseOuter(s);
+    obj.next = parseOuter_sol(s);
     // Update length to include everything we consumed.
     if (obj.next!==null)
         obj.length += obj.next.length;
@@ -147,7 +170,7 @@ function parseOuter(s) {
 }
 
 // Parsing the <templateinvocation> rule. We assume the inital TSTART is at the front of the string.
-function parseTemplateInvocation(s) {
+function parseTemplateInvocation_sol(s) {
     // Make up the object we will return; we modify fields below.
     var obj = {name:"templateinvocation",
                itext:null,
@@ -161,7 +184,7 @@ function parseTemplateInvocation(s) {
     s = s.substr(obj.length);
 
     // Next we find the name.  This is an itext, which is a list, and so might be empty.
-    obj.itext = parseItext(s);
+    obj.itext = parseItext_sol(s);
     if (obj.itext!=null) {
         obj.length += obj.itext.length;
         s = s.substr(obj.itext.length);
@@ -170,7 +193,7 @@ function parseTemplateInvocation(s) {
     }
 
     // Then parse through the argument list.  Again, this is a list, and it might be empty.
-    obj.targs = parseTargs(s);
+    obj.targs = parseTargs_sol(s);
     if (obj.targs!=null) {
         obj.length += obj.targs.length;
         s = s.substr(obj.targs.length);
@@ -207,7 +230,7 @@ function pruneWS(list,field) {
 }
 
 // Parsing itext.  This returns a linked list of objects, possibly null.
-function parseItext(s) {
+function parseItext_sol(s) {
     // An empty string could be a base case.  Strictly speaking, however, parsing <itext> 
     // should never actually terminate in anything other than a PIPE or a TEND, so this
     // is just being over-cautious.
@@ -239,19 +262,19 @@ function parseItext(s) {
         s = s.substr(obj.length);
         break;
     case 'TSTART':
-        obj.templateinvocation = parseTemplateInvocation(s);
+        obj.templateinvocation = parseTemplateInvocation_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templateinvocation.length;
         s = s.substr(obj.templateinvocation.length);
         break;
     case 'DSTART':
-        obj.templatedef = parseTemplateDef(s);
+        obj.templatedef = parseTemplateDef_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templatedef.length;
         s = s.substr(obj.templatedef.length);
         break;
     case 'PSTART':
-        obj.tparam = parseTParam(s);
+        obj.tparam = parseTParam_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.tparam.length;
         s = s.substr(obj.tparam.length);
@@ -259,7 +282,7 @@ function parseItext(s) {
     }
 
     // We might have more pieces to the itext list, so keep going.
-    obj.next = parseItext(s);
+    obj.next = parseItext_sol(s);
     // Update length consumed to include the remaining pieces too
     if (obj.next!==null)
         obj.length += obj.next.length;
@@ -267,7 +290,7 @@ function parseItext(s) {
 }
 
 // Parsing targs.  This is another list.
-function parseTargs(s) {
+function parseTargs_sol(s) {
     // To start with we should see a PIPE or a TEND.  If we see TEND, then
     // we are done with our list.
     var t = scan(s,{PIPE:true,TEND:true});
@@ -285,7 +308,7 @@ function parseTargs(s) {
     s = s.substr(obj.length);
 
     // Parse the ensuing itext.
-    obj.itext = parseItext(s);
+    obj.itext = parseItext_sol(s);
     if (obj.itext!=null) {
         obj.length += obj.itext.length;
         s = s.substr(obj.itext.length);
@@ -293,7 +316,7 @@ function parseTargs(s) {
     }
 
     // There might be more arguments, so keep parsing recursively.
-    obj.next = parseTargs(s);
+    obj.next = parseTargs_sol(s);
     if (obj.next!=null)
         obj.length += obj.next.length;
     return obj;
@@ -301,7 +324,7 @@ function parseTargs(s) {
 
 // Parsing <templatedef>.  Very much like parsing an invocation, we get here once we've
 // already recognized the DSTART, so we know it starts with one.
-function parseTemplateDef(s) {
+function parseTemplateDef_sol(s) {
     var obj = {name:"templatedef",
                // It's all one big list of dtext, but it's a bit easier if we at least split
                // off the name from the rest of it.
@@ -316,7 +339,7 @@ function parseTemplateDef(s) {
     s = s.substr(obj.length);
 
     // Next we find the template name.  This is a dtext.
-    obj.dtext = parseDtext(s);
+    obj.dtext = parseDtext_sol(s);
     if (obj.dtext!=null) {
         obj.length += obj.dtext.length;
         s = s.substr(obj.dtext.length);
@@ -325,7 +348,7 @@ function parseTemplateDef(s) {
     }
 
     // Then the parameter list.
-    obj.dparams = parseDparams(s);
+    obj.dparams = parseDparams_sol(s);
     // The dparams list cannot be null, as we always have a body.
     obj.length += obj.dparams.length;
     s = s.substr(obj.dparams.length);
@@ -345,7 +368,7 @@ function parseTemplateDef(s) {
 
 // Parsing dtext.  This is quite similar to parseItext, just terminating
 // in a DEND instead of TEND, and including INNERDTEXT instead of INNERTEXT.
-function parseDtext(s) {
+function parseDtext_sol(s) {
     // Trivial base case check.
     if (s=="")
         return null;
@@ -375,19 +398,19 @@ function parseDtext(s) {
         s = s.substr(obj.length);
         break;
     case 'TSTART':
-        obj.templateinvocation = parseTemplateInvocation(s);
+        obj.templateinvocation = parseTemplateInvocation_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templateinvocation.length;
         s = s.substr(obj.templateinvocation.length);
         break;
     case 'DSTART':
-        obj.templatedef = parseTemplateDef(s);
+        obj.templatedef = parseTemplateDef_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.templatedef.length;
         s = s.substr(obj.templatedef.length);
         break;
     case 'PSTART':
-        obj.tparam = parseTParam(s);
+        obj.tparam = parseTParam_sol(s);
         // Update how far we got in through the string.
         obj.length += obj.tparam.length;
         s = s.substr(obj.tparam.length);
@@ -395,7 +418,7 @@ function parseDtext(s) {
     }
 
     // We might have more pieces to the dtext list, so keep going.
-    obj.next = parseDtext(s);
+    obj.next = parseDtext_sol(s);
     // Update length consumed to include the remaining pieces too
     if (obj.next!==null)
         obj.length += obj.next.length;
@@ -403,7 +426,7 @@ function parseDtext(s) {
 }
 
 // Parsing dparams.  This is another list, of parameters, and the body.
-function parseDparams(s) {
+function parseDparams_sol(s) {
     // To start with we should see a PIPE or a DEND.  If we see DEND, then
     // we are done with our list.
     var t = scan(s,{PIPE:true,DEND:true});
@@ -420,21 +443,21 @@ function parseDparams(s) {
     s = s.substr(obj.length);
 
     // Parse the ensuing dtext.
-    obj.dtext = parseDtext(s);
+    obj.dtext = parseDtext_sol(s);
     if (obj.dtext!=null) {
         obj.length += obj.dtext.length;
         s = s.substr(obj.dtext.length);
     }
 
     // There might be more, so keep parsing recursively.
-    obj.next = parseDparams(s);
+    obj.next = parseDparams_sol(s);
     if (obj.next!=null)
         obj.length += obj.next.length;
     return obj;
 }
 
 // Parsing a <tparam> structure.
-function parseTParam(s) {
+function parseTParam_sol(s) {
     // We get here having already seen the PSTART, so 
     // we just need to skip over that and get the name and the PEND.
 
@@ -467,74 +490,108 @@ function parseTParam(s) {
 	  <textarea class="left" id="test" style="display: table">
 
 /* Tests */
-function nodeEq(n1, n2){
+function nodeScore(n1, n2, score){
+    if(!n1 && !n2)
+	return 1;
+    if(!n1 || !n2)
+	return 0;
+
     var nameEq = n1.name === n2.name;
-    if(!nameEq)
-	return false;
+    if(nameEq)
+	score += 1;
 
-    if(n1.hasOwnProperty(TSTART) && n2.hasOwnProperty(TSTART))
-	if(!(n1.TSTART === n2.TSTART))
-	    return false;
-    if(n1.hasOwnProperty(TEND) && n2.hasOwnProperty(TEND))
-	if(!(n1.TEND === n2.TEND))
-	    return false;
-    if(n1.hasOwnProperty(PIPE) && n2.hasOwnProperty(PIPE))
-	if(!(n1.PIPE === n2.PIPE))
-	    return false;
-    if(n1.hasOwnProperty(DSTART) && n2.hasOwnProperty(DSTART))
-	if(!(n1.DSTART === n2.DSTART))
-	    return false;
-    if(n1.hasOwnProperty(DEND) && n2.hasOwnProperty(DEND))
-	if(!(n1.DEND === n2.DEND))
-	    return false;
-    if(n1.hasOwnProperty(PSTART) && n2.hasOwnProperty(PSTART))
-	if(!(n1.PSTART === n2.PSTART))
-	    return false;
-    if(n1.hasOwnProperty(PEND) && n2.hasOwnProperty(PEND))
-	if(!(n1.PEND === n2.PEND))
-	    return false;
-    if(n1.hasOwnProperty(OUTERTEXT) && n2.hasOwnProperty(OUTERTEXT))
-	if(!(n1.OUTERTEXT === n2.OUTERTEXT))
-	    return false;
-    if(n1.hasOwnProperty(INNERTEXT) && n2.hasOwnProperty(INNERTEXT))
-	if(!(n1.INNERTEXT === n2.INNERTEXT))
-	    return false;
-    if(n1.hasOwnProperty(INNERDTEXT) && n2.hasOwnProperty(INNERDTEXT))
-	if(!(n1.INNERDTEXT === n2.INNERDTEXT))
-	    return false;
-    if(n1.hasOwnProperty(PNAME) && n2.hasOwnProperty(PNAME))
-	if(!(n1.PNAME === n2.PNAME))
-	    return false;
-    if(n1.hasOwnProperty(outer) && n2.hasOwnProperty(outer))
-	if(!(n1.outer === n2.outer))
-	    return false;
-    if(n1.hasOwnProperty(templateinvocation) && n2.hasOwnProperty(templateinvocation))
-	if(!(n1.templateinvocation === n2.templateinvocation))
-	    return false;
-    if(n1.hasOwnProperty(targs) && n2.hasOwnProperty(targs))
-	if(!(n1.targs === n2.targs))
-	    return false;
-    if(n1.hasOwnProperty(itext) && n2.hasOwnProperty(itext))
-	if(!(n1.itext === n2.itext))
-	    return false;
-    if(n1.hasOwnProperty(templatedef) && n2.hasOwnProperty(templatedef))
-	if(!(n1.templatedef === n2.templatedef))
-	    return false;
-    if(n1.hasOwnProperty(dtext) && n2.hasOwnProperty(dtext))
-	if(!(n1.dtext === n2.dtext))
-	    return false;
-    if(n1.hasOwnProperty(tparam) && n2.hasOwnProperty(tparam))
-	if(!(n1.tparam === n2.tparam))
-	    return false;
-    if(n1.hasOwnProperty(tparam) && n2.hasOwnProperty(tparam))
-	if(!(n1.tparam === n2.tparam))
-	    return false;
+    if(n1.hasOwnProperty('TSTART') && n2.hasOwnProperty('TSTART'))
+	if(n1.TSTART === n2.TSTART)
+	    score += 1;
+    if(n1.hasOwnProperty('TEND') && n2.hasOwnProperty('TEND'))
+	if(n1.TEND === n2.TEND)
+	    score += 1;
+    if(n1.hasOwnProperty('PIPE') && n2.hasOwnProperty('PIPE'))
+	if(n1.PIPE === n2.PIPE)
+	    score += 1;
+    if(n1.hasOwnProperty('DSTART') && n2.hasOwnProperty('DSTART'))
+	if(n1.DSTART === n2.DSTART)
+	    score += 1;
+    if(n1.hasOwnProperty('DEND') && n2.hasOwnProperty('DEND'))
+	if(n1.DEND === n2.DEND)
+	    score += 1;
+    if(n1.hasOwnProperty('PSTART') && n2.hasOwnProperty('PSTART'))
+	if(n1.PSTART === n2.PSTART)
+	    score += 1;
+    if(n1.hasOwnProperty('PEND') && n2.hasOwnProperty('PEND'))
+	if(n1.PEND === n2.PEND)
+	    score += 1;
+    if(n1.hasOwnProperty('OUTERTEXT') && n2.hasOwnProperty('OUTERTEXT'))
+	if(n1.OUTERTEXT === n2.OUTERTEXT)
+	    score += 1;
+    if(n1.hasOwnProperty('INNERTEXT') && n2.hasOwnProperty('INNERTEXT'))
+	if(n1.INNERTEXT === n2.INNERTEXT)
+	    score += 1;
+    if(n1.hasOwnProperty('INNERDTEXT') && n2.hasOwnProperty('INNERDTEXT'))
+	if(n1.INNERDTEXT === n2.INNERDTEXT)
+	    score += 1;
+    if(n1.hasOwnProperty('PNAME') && n2.hasOwnProperty('PNAME'))
+	if(n1.PNAME === n2.PNAME)
+	    score += 1;
 
+    if(n1.hasOwnProperty('outer') && n2.hasOwnProperty('outer')){
+    	if(n1.outer === null && n2.outer === null)
+    	    score += 1;
+    	else
+    	    score += nodeScore(n1.outer, n2.outer, score);
+    }
+    if(n1.hasOwnProperty('templateinvocation') && n2.hasOwnProperty('templateinvocation')){
+	if(n1.templateinvocation === null && n2.templateinvocation === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.templateinvocation, n2.templateinvocation, score);
+    }
+    if(n1.hasOwnProperty('targs') && n2.hasOwnProperty('targs')){
+	if(n1.targs === null && n2.targs === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.targs, n2.targs,score);
+    }
+    if(n1.hasOwnProperty('itext') && n2.hasOwnProperty('itext')){
+	if(n1.itext === null && n2.itext === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.itext, n2.itext,score);
+    }
+    if(n1.hasOwnProperty('templatedef') && n2.hasOwnProperty('templatedef')){
+	if(n1.templatedef === null && n2.templatedef === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.templatedef, n2.templatedef,score);
+    }
+    if(n1.hasOwnProperty('dtext') && n2.hasOwnProperty('dtext')){
+	if(n1.dtext === null && n2.dtext === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.dtext, n2.dtext,score);
+    }
+    if(n1.hasOwnProperty('tparam') && n2.hasOwnProperty('tparam')){
+	if(n1.tparam === null && n2.tparam === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.tparam, n2.tparam,score);
+    }
+    if(n1.hasOwnProperty('tparam') && n2.hasOwnProperty('tparam')){
+	if(n1.tparam === null && n2.tparam === null)
+	    score += 1;
+	else
+	    score += nodeScore(n1.tparam, n2.tparam,score);
+    }
+
+    if(name === 'templateinvocation')
+	return -2;
+    // if(score > 100)
+    // 	return n1.OUTERTEXT;
     if(n1.next === null && n2.next === null)
-	return true;
+	return score;
     else
-	return nodeEq(n1,n2);
-
+	// return 10000 + score;
+	return nodeScore(n1.next,n2.next,score);
 }
  
 
@@ -559,6 +616,9 @@ function test1(){
     var s11 = "abc {{ {{{ {{{ }}} }} xyz";
     var s12 = "abc {{ {{ d | e }} | {: 1 | 2 :} | {{{ hi }}} }} xyz";
 
+    var score = nodeScore(parseOuter(s1), parseOuter(s1),0);
+    return score;
+
     // s3 = "abc {{ def }} ghi"
     // s4 = "abc {{ def }} ghi"
     // s5 = "abc {{ def }} ghi"
@@ -573,100 +633,100 @@ function test1(){
     var failures = 0;
 
     try {
-	var p1 = printAST(parseOuter(s1));
-	var score1 = s1.replace(/ /g,"") === p1.replace(/ /g,"");
+    	var p1 = printAST(parseOuter(s1));
+    	var score1 = s1.replace(/ /g,"") === p1.replace(/ /g,"");
     } catch (e) {
-	var p1 = "FAILURE";
-	failures += 1;
-	var score1 = false;
+    	var p1 = "FAILURE";
+    	failures += 1;
+    	var score1 = false;
     }
     try {
-	var p2 = printAST(parseOuter(s2));
-	var score2 = s2.replace(/ /g,"") === p2.replace(/ /g,"");
+    	var p2 = printAST(parseOuter(s2));
+    	var score2 = s2.replace(/ /g,"") === p2.replace(/ /g,"");
     } catch (e) {
-	var p2 = "FAILURE";
-	failures += 1;
-	var score2 = false;
+    	var p2 = "FAILURE";
+    	failures += 1;
+    	var score2 = false;
     }
     try {
-	var p3 = printAST(parseOuter(s3));
-	var score3 = s3.replace(/ /g,"") === p3.replace(/ /g,"");
+    	var p3 = printAST(parseOuter(s3));
+    	var score3 = s3.replace(/ /g,"") === p3.replace(/ /g,"");
     } catch (e) {
-	var p3 = "FAILURE";
-	failures += 1;
-	var score3 = false;
+    	var p3 = "FAILURE";
+    	failures += 1;
+    	var score3 = false;
     }
     try {
-	var p4 = printAST(parseOuter(s4));
-	var score4 = s4.replace(/ /g,"") === p4.replace(/ /g,"");
+    	var p4 = printAST(parseOuter(s4));
+    	var score4 = s4.replace(/ /g,"") === p4.replace(/ /g,"");
     } catch (e) {
-	var p4 = "FAILURE";
-	failures += 1;
-	var score4 = false;
+    	var p4 = "FAILURE";
+    	failures += 1;
+    	var score4 = false;
     }
     try {
-	var p5 = printAST(parseOuter(s5));
-	var score5 = s5.replace(/ /g,"") === p5.replace(/ /g,"");
+    	var p5 = printAST(parseOuter(s5));
+    	var score5 = s5.replace(/ /g,"") === p5.replace(/ /g,"");
     } catch (e) {
-	var p5 = "FAILURE";
-	failures += 1;
-	var score5 = false;
+    	var p5 = "FAILURE";
+    	failures += 1;
+    	var score5 = false;
     }
     try {
-	var p6 = printAST(parseOuter(s6));
-	var score6 = s6.replace(/ /g,"") === p6.replace(/ /g,"");
+    	var p6 = printAST(parseOuter(s6));
+    	var score6 = s6.replace(/ /g,"") === p6.replace(/ /g,"");
     } catch (e) {
-	var p6 = "FAILURE";
-	failures += 1;
-	var score6 = false;
+    	var p6 = "FAILURE";
+    	failures += 1;
+    	var score6 = false;
     }
     try {
-	var p7 = printAST(parseOuter(s7));
-	var score7 = s7.replace(/ /g,"") === p7.replace(/ /g,"");
+    	var p7 = printAST(parseOuter(s7));
+    	var score7 = s7.replace(/ /g,"") === p7.replace(/ /g,"");
     } catch (e) {
-	var p7 = "FAILURE";
-	failures += 1;
-	var score7 = false;
+    	var p7 = "FAILURE";
+    	failures += 1;
+    	var score7 = false;
     }
     try {
-	var p8 = printAST(parseOuter(s8));
-	var score8 = s8.replace(/ /g,"") === p8.replace(/ /g,"");
+    	var p8 = printAST(parseOuter(s8));
+    	var score8 = s8.replace(/ /g,"") === p8.replace(/ /g,"");
     } catch (e) {
-	var p8 = "FAILURE";
-	failures += 1;
-	var score8 = false;
+    	var p8 = "FAILURE";
+    	failures += 1;
+    	var score8 = false;
     }
     try {
-	var p9 = printAST(parseOuter(s9));
-	var score9 = s9.replace(/ /g,"") === p9.replace(/ /g,"");
+    	var p9 = printAST(parseOuter(s9));
+    	var score9 = s9.replace(/ /g,"") === p9.replace(/ /g,"");
     } catch (e) {
-	var p9 = "FAILURE";
-	failures += 1;
-	var score9 = false;
+    	var p9 = "FAILURE";
+    	failures += 1;
+    	var score9 = false;
     }
     try {
-	var p10 = printAST(parseOuter(s10));
-	var score10 = s10.replace(/ /g,"") === p10.replace(/ /g,"");
+    	var p10 = printAST(parseOuter(s10));
+    	var score10 = s10.replace(/ /g,"") === p10.replace(/ /g,"");
     } catch (e) {
-	var p10 = "FAILURE";
-	failures += 1;
-	var score10 = false;
+    	var p10 = "FAILURE";
+    	failures += 1;
+    	var score10 = false;
     }
     try {
-	var p11 = printAST(parseOuter(s11));
-	var score11 = s11.replace(/ /g,"") === p11.replace(/ /g,"");
+    	var p11 = printAST(parseOuter(s11));
+    	var score11 = s11.replace(/ /g,"") === p11.replace(/ /g,"");
     } catch (e) {
-	var p11 = "FAILURE";
-	failures += 1;
-	var score11 = false;
+    	var p11 = "FAILURE";
+    	failures += 1;
+    	var score11 = false;
     }
     try {
-	var p12 = printAST(parseOuter(s12));
-	var score12 = s12.replace(/ /g,"") === p12.replace(/ /g,"");
+    	var p12 = printAST(parseOuter(s12));
+    	var score12 = s12.replace(/ /g,"") === p12.replace(/ /g,"");
     } catch (e) {
-	var p12 = "FAILURE";
-	failures += 1;
-	var score12 = false;
+    	var p12 = "FAILURE";
+    	failures += 1;
+    	var score12 = false;
     }
 
     //var p1 = printAST(parseOuter(s1));
@@ -695,10 +755,10 @@ function test1(){
     //var score11 = p11 === printAST(parseOuter(p11));
     //var score12 = p12 === printAST(parseOuter(p12));
 
-    var score = (0 + score1 + score2 + score3 + score4 + score5 + score6 + score7 + score8 + score9 + score10 + score11 + score12) / 2;
+    // var score = (0 + score1 + score2 + score3 + score4 + score5 + score6 + score7 + score8 + score9 + score10 + score11 + score12) / 2;
 
-    var output = "" + score + "/ 6 (" + failures + " failures) \n" + s1 + " : " + p1 + "\n" + s2 + " : " + p2 + "\n" + s3 + " : " + p3 + "\n" + s4 + " : " + p4 + "\n" + s5 + " : " + p5 + "\n" + s6 + " : " + p6 + "\n" + s7 + " : " + p7 + "\n" + s8 + " : " + p8 + "\n" + s9 + " : " + p9 + "\n" + s10 + " : " + p10 + "\n" + s11 + " : " + p11 + "\n" + s12 + " : " + p12;
-    return output;
+    // var output = "" + score + "/ 6 (" + failures + " failures) \n" + s1 + " : " + p1 + "\n" + s2 + " : " + p2 + "\n" + s3 + " : " + p3 + "\n" + s4 + " : " + p4 + "\n" + s5 + " : " + p5 + "\n" + s6 + " : " + p6 + "\n" + s7 + " : " + p7 + "\n" + s8 + " : " + p8 + "\n" + s9 + " : " + p9 + "\n" + s10 + " : " + p10 + "\n" + s11 + " : " + p11 + "\n" + s12 + " : " + p12;
+    // return output;
 }
 
 test1();
