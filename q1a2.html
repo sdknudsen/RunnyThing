@@ -76,20 +76,6 @@ var DEND_sol1 = /:}/;
 var PSTART_sol1 = /{{{/;
 var PEND_sol1 = /}}}/;
 
-var condPerfect = (String(TSTART) === String(TSTART_sol) &&
-String(TEND) === String(TEND_sol) &&
-String(DSTART) === String(DSTART_sol) &&
-String(DEND) === String(DEND_sol) &&
-String(PSTART) === String(PSTART_sol) &&
-String(PEND) === String(PEND_sol))
-
-var condAlmost = (String(TSTART) === String(TSTART_sol1) &&
-String(TEND) === String(TEND_sol1) &&
-String(DSTART) === String(DSTART_sol1) &&
-String(DEND) === String(DEND_sol1) &&
-String(PSTART) === String(PSTART_sol1) &&
-String(PEND) === String(PEND_sol1))
-
 test01 =
 TSTART.test("{{") &&
 TEND.test("}}") &&
